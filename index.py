@@ -13,6 +13,9 @@ class Polibot:
         self.huanhang_pattern = r'^[ \n]+$' #huanhang_pattern，检测是否由纯空格和换行符组成，布尔值
         self.out_separator_list=[",","，", ";", ":", ".","。", "!", "?", "-", "—","\"\"", "\'", "\'", "br"] #out_separator_list，被拒绝的间隔符列表，列表
 
+    def contains_any(self, string, items):#被process_headings调用
+        return any(item in string for item in items)
+
     def process_templates(self): #被perform_edit调用，查找信息框模板
         for template in self.code.filter_templates():
             if template.name.matches("AU信息框"):
@@ -339,7 +342,7 @@ class Polibot:
 
     def process_headings(self, headings): #被process_code调用，检查标题
         if headings != []:
-            norm_headings = ["简介", "代入列表", "错位列表", "背景故事", "世界观", "漫画集", "音乐集", "集", "角色信息", "琐事", "历程", "画廊", "经历", "作品", "曲源", "内容"]
+            norm_headings = ["简介","列表","背景故事","世界观","集","信息","琐事","历程","发展","画廊","经历","作品","曲源","内容"]
             previous_level = 1
             is_out_process_headings = False
             is_across_headings = False
@@ -352,7 +355,7 @@ class Polibot:
 
                 previous_level = level
 
-                if level == 2 and str(heading.title.strip()) not in norm_headings:
+                if level == 2 and not self.contains_any(str(heading.title.strip()), norm_headings):
                     is_out_process_headings=True
 
             if is_across_headings:self.self.out_poli_list.append("页面中使用了跨层级的章节标题")
@@ -412,7 +415,7 @@ class Polibot:
 
         print("检查点")
         if op_a or op_b:
-            self.page.edit(str(self.code), summary="Polibot beta0.2B 作出的编辑")
+            self.page.edit(str(self.code), summary="Polibot beta0.2C 作出的编辑")
 
         print(self.out_poli_list, self.poli_list, self.generate_op_string())
 #---------------------------------main-----------------------------------------#
@@ -440,21 +443,31 @@ while True:
     recent_change_dict2={}
     recent_change_dict2_b=False
 
-    for index,change in enumerate(recent_changes):
+    for index,change in enumerate(recent_changes):#获取最近更改
         timestamp1 = time.mktime(change['timestamp'])
         if index==0:
             new_frist_timestamp=timestamp1 #frist_timestamp，最新一次更改的时间戳，整数
-        recent_change_dict[change['title']] = timestamp1
+        if change['title'] not in recent_change_dict:
+            inspect_delete_title = change['title']
+            inspect_delete_page = site.pages[inspect_delete_title]
+            exists = inspect_delete_page.exists
+            if exists:
+                recent_change_dict[change['title']] = timestamp1
+            else:
+                print("排除已删除的页面")
         count += 1
         if count >= desired_count:
             break
 
     title_list=[]
     print(frist_timestamp)
-    if frist_timestamp and all_count!=0:
+    if frist_timestamp and all_count!=0:#获取去重后的最近更改
         for key, value in recent_change_dict.items():
             if int(value) > int(frist_timestamp):
-                recent_change_dict2[change['title']] = timestamp1
+                if change['title'] not in recent_change_dict2:
+                    recent_change_dict2[change['title']] = timestamp1
+                else:
+                    pass
         recent_change_dict2_b=True #recent_change_dict2_b，是否选择去重结果，布尔值
 
     if recent_change_dict2_b:
